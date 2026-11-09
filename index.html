@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Search the lab inventory by item, bench or drawer code.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128300;</text></svg>">
+<title>Lab Bench Finder</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+html{color-scheme:light dark;}
+body{margin:0;}
+img{max-width:100%; height:auto;}
+[hidden]{display:none;}
+
+:root{
+  --ground:#EDF0EE; --surface:#FFFFFF; --surface-2:#F5F7F5;
+  --ink:#19201E; --muted:#5B6865; --faint:#8A9793;
+  --line:#D7DEDA; --line-soft:#E4E9E6;
+  --accent:#0D6E62; --accent-soft:#DCEBE8; --accent-ink:#0A544A;
+  --flag:#9E4E1C; --flag-soft:#F6E7DB;
+  --shadow:0 1px 2px rgba(25,32,30,.06), 0 6px 18px -12px rgba(25,32,30,.22);
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --disp:"Archivo","IBM Plex Sans",-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1312; --surface:#19201E; --surface-2:#141A19;
+    --ink:#E5ECE8; --muted:#97A49F; --faint:#77847F;
+    --line:#2B3331; --line-soft:#232A28;
+    --accent:#58C6B6; --accent-soft:#16302C; --accent-ink:#8FDCD0;
+    --flag:#DE9460; --flag-soft:#33241A;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1312; --surface:#19201E; --surface-2:#141A19;
+  --ink:#E5ECE8; --muted:#97A49F; --faint:#77847F;
+  --line:#2B3331; --line-soft:#232A28;
+  --accent:#58C6B6; --accent-soft:#16302C; --accent-ink:#8FDCD0;
+  --flag:#DE9460; --flag-soft:#33241A;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground); color:var(--ink); font-family:var(--sans);
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;}
+.wrap{max-width:700px; margin:0 auto; padding:0 16px 72px;}
+
+/* ---- masthead ---- */
+.mast{padding:26px 0 14px;}
+.eyebrow{font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--faint); margin:0 0 7px;}
+h1{font-family:var(--disp); font-weight:700; font-size:clamp(28px,8vw,36px);
+  letter-spacing:-.02em; line-height:1.04; margin:0; text-wrap:balance;}
+.sub{color:var(--muted); font-size:14px; margin:8px 0 0; max-width:48ch;}
+
+/* ---- sticky search ---- */
+.seek{position:sticky; top:0; z-index:20; background:var(--ground);
+  padding:12px 0 10px; margin:0 -16px; padding-left:16px; padding-right:16px;
+  border-bottom:1px solid transparent; transition:border-color .15s ease;}
+.seek.stuck{border-bottom-color:var(--line);}
+.field{position:relative; display:flex; align-items:center;}
+.field svg{position:absolute; left:14px; width:17px; height:17px; color:var(--faint); pointer-events:none;}
+#q{width:100%; font-family:var(--sans); font-size:16px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line); border-radius:11px;
+  padding:13px 42px 13px 40px; box-shadow:var(--shadow); appearance:none;}
+#q::placeholder{color:var(--faint);}
+#q:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);}
+.clear{position:absolute; right:7px; width:30px; height:30px; display:none;
+  align-items:center; justify-content:center; border:0; border-radius:8px;
+  background:transparent; color:var(--muted); font-size:17px; cursor:pointer; line-height:1;}
+.clear:hover{background:var(--surface-2); color:var(--ink);}
+.clear:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+.clear.on{display:flex;}
+
+.chips{display:flex; gap:6px; margin-top:10px; overflow-x:auto; scrollbar-width:none;
+  padding-bottom:2px; -webkit-overflow-scrolling:touch;}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto; font-family:var(--disp); font-size:12.5px; font-weight:600;
+  letter-spacing:.01em; color:var(--muted); background:var(--surface);
+  border:1px solid var(--line); border-radius:999px; padding:6px 12px; cursor:pointer;}
+.chip:hover{color:var(--ink); border-color:var(--faint);}
+.chip:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+.chip[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .chip[aria-pressed="true"]{color:#07100E}}
+:root[data-theme="dark"] .chip[aria-pressed="true"]{color:#07100E}
+
+.tally{font-family:var(--mono); font-size:11.5px; font-weight:500; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--faint); padding:18px 0 9px;}
+
+/* ---- results ---- */
+.list{display:flex; flex-direction:column; gap:8px;}
+.card{background:var(--surface); border:1px solid var(--line-soft); border-radius:12px;
+  padding:13px 14px 5px; box-shadow:var(--shadow);}
+.card.multi{border-left:3px solid var(--accent);}
+.card-top{display:flex; align-items:baseline; gap:10px; justify-content:space-between;}
+.name{font-family:var(--disp); font-weight:600; font-size:16px; letter-spacing:-.006em;
+  line-height:1.26; margin:0;}
+.cat{flex:0 0 auto; font-family:var(--mono); font-size:10px; font-weight:600;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--muted);}
+.spread{font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--accent-ink); margin:7px 0 0;}
+
+.spots{list-style:none; margin:8px 0 0; padding:0;}
+.spot{display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:9px 0; border-top:1px solid var(--line-soft);}
+.codes{display:flex; gap:4px; flex:0 0 auto;}
+.code{font-family:var(--mono); font-size:13.5px; font-weight:600; letter-spacing:.01em;
+  color:var(--accent-ink); background:var(--accent-soft); border:0; border-radius:6px;
+  padding:3px 7px; cursor:pointer;}
+.code:hover{background:var(--accent); color:#fff;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .code:hover{color:#07100E}}
+:root[data-theme="dark"] .code:hover{color:#07100E}
+.code:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+.where{flex:1 1 auto; min-width:0; font-size:13.5px; color:var(--muted);}
+.where b{font-weight:600; color:var(--ink);}
+.qty{flex:0 0 auto; font-family:var(--mono); font-size:12.5px; font-weight:500;
+  font-variant-numeric:tabular-nums; color:var(--muted);}
+.qty.none{color:var(--faint);}
+.note{flex:1 1 100%; font-size:12.5px; color:var(--faint); padding-left:1px;}
+
+.empty{background:var(--surface); border:1px dashed var(--line); border-radius:12px;
+  padding:30px 20px; text-align:center;}
+.empty p{margin:0 0 4px; font-family:var(--disp); font-weight:600; font-size:15.5px;}
+.empty span{font-size:13.5px; color:var(--muted);}
+
+/* ---- footer / sign ---- */
+.foot{margin-top:30px; padding-top:18px; border-top:1px solid var(--line);
+  display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;}
+.foot p{margin:0; font-size:12.5px; color:var(--faint); max-width:42ch;}
+.btn{font-family:var(--disp); font-weight:600; font-size:13px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line); border-radius:9px;
+  padding:9px 14px; cursor:pointer; box-shadow:var(--shadow);}
+.btn:hover{border-color:var(--accent); color:var(--accent-ink);}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+
+.sign{margin-top:16px; background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; padding:30px 24px; text-align:center;}
+.sign-eyebrow{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--accent-ink); margin:0 0 10px;}
+.sign h2{font-family:var(--disp); font-weight:700; font-size:clamp(22px,6vw,30px);
+  letter-spacing:-.02em; margin:0; text-wrap:balance;}
+.sign .tagline{font-size:14.5px; color:var(--muted); margin:8px 0 20px;}
+.sign img{width:206px; height:206px; display:block; margin:0 auto; border-radius:8px;
+  background:#fff; padding:9px; border:1px solid var(--line-soft);}
+.sign .url{font-family:var(--mono); font-size:11px; color:var(--faint); margin:16px 0 0;
+  word-break:break-all;}
+
+@media print{
+  :root{--ground:#fff; --surface:#fff; --ink:#000; --muted:#333; --faint:#555;
+    --line:#bbb; --line-soft:#ddd; --accent-ink:#000; --shadow:none;}
+  .mast,.seek,.tally,.list,.foot{display:none !important;}
+  .wrap{padding:0; max-width:none;}
+  .sign{display:block !important; border:0; margin:0; padding:48px 0;}
+  .sign img{width:300px; height:300px; border:0;}
+  .sign h2{font-size:40px;}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <p class="eyebrow">Lab inventory &middot; <span id="n-items"></span> items &middot; <span id="n-bench"></span> benches</p>
+    <h1>Where is it?</h1>
+    <p class="sub">Search by item, or by a location code off a drawer or shelf label. Tap any code to see everything stored there.</p>
+  </header>
+
+  <div class="seek" id="seek">
+    <div class="field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M16.5 16.5 21 21"></path></svg>
+      <input id="q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"
+             placeholder="forceps, S8, 50 ml conical&hellip;" aria-label="Search the lab inventory">
+      <button class="clear" id="clear" type="button" aria-label="Clear search">&times;</button>
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="Filter by bench"></div>
+  </div>
+
+  <p class="tally" id="tally"></p>
+  <div class="list" id="list"></div>
+
+  <div class="foot">
+    <p>Codes are per bench: <b>S</b>&thinsp;= shelf, <b>D</b>&thinsp;= drawer or cabinet, <b>B</b>&thinsp;= on the benchtop. A <b>&mdash;</b> means nobody has counted it yet.</p>
+    <button class="btn" id="sign-btn" type="button">Print a QR sign</button>
+  </div>
+
+  <section class="sign" id="sign" hidden>
+    <p class="sign-eyebrow">Scan to find anything</p>
+    <h2>Lab Inventory</h2>
+    <p class="tagline">Every item, bench and drawer code &mdash; searchable on your phone.</p>
+    <div id="qr-slot"></div>
+    <p class="url" id="qr-url"></p>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DATA = [{"name":"Minicentrifuge","cat":"Equipment","at":[{"b":1,"s":"Bench","c":["S5"],"q":"1","n":""},{"b":4,"s":"Bench","c":["B4"],"q":"1","n":""}]},{"name":"Vortex Genie","cat":"Equipment","at":[{"b":1,"s":"Bench","c":["S5"],"q":"1","n":""},{"b":4,"s":"Bench","c":["B4"],"q":"1","n":""}]},{"name":"10ml Pipette Tip Refills","cat":"Equipment","at":[{"b":1,"s":"Shelf","c":["S1"],"q":"","n":""}]},{"name":"200 microliters Pipette Tip Refills","cat":"Equipment","at":[{"b":1,"s":"Shelf","c":["S1"],"q":"","n":""}]},{"name":"Small Vials","cat":"Equipment","at":[{"b":1,"s":"Shelf","c":["S1"],"q":"60","n":""}]},{"name":"Quick Plasmid Miniprep Kit","cat":"Equipment","at":[{"b":1,"s":"Shelf","c":["S2"],"q":"1","n":""}]},{"name":"Tube Block- Pink","cat":"Equipment","at":[{"b":1,"s":"Shelf","c":["S2"],"q":"1","n":""}]},{"name":"Tube Blocks- Green","cat":"Equipment","at":[{"b":1,"s":"Shelf","c":["S2"],"q":"2","n":""}]},{"name":"Tegosept","cat":"Misc","at":[{"b":1,"s":"Shelf","c":["S6"],"q":"1","n":""}]},{"name":"0.5 M EDTA","cat":"Reagent","at":[{"b":1,"s":"Shelf","c":["S8"],"q":"1","n":""}]},{"name":"1M Tris-HCL ph 8","cat":"Reagent","at":[{"b":1,"s":"Shelf","c":["S8"],"q":"1","n":""}]},{"name":"Sodium Chloride 5M soln","cat":"Reagent","at":[{"b":1,"s":"Shelf","c":["S8"],"q":"1","n":""}]},{"name":"Tris-EDTA 1x","cat":"Reagent","at":[{"b":1,"s":"Shelf","c":["S8"],"q":"1","n":""}]},{"name":"Pipettes","cat":"Equipment","at":[{"b":1,"s":"Drawer","c":["D6"],"q":"","n":""}]},{"name":"Petri Dish- 35 x 10mm","cat":"Equipment","at":[{"b":1,"s":"Cabinet","c":["D2"],"q":"40","n":""},{"b":4,"s":"Shelf","c":["S19"],"q":"","n":""}]},{"name":"Square Petri Dish-120x120x17 mm","cat":"Equipment","at":[{"b":1,"s":"Cabinet","c":["D2"],"q":"240","n":""},{"b":4,"s":"Shelf","c":["S18"],"q":"","n":""}]},{"name":"Heavy Duty Scissors","cat":"Tool","at":[{"b":2,"s":"Drawer","c":["D3"],"q":"8","n":""}]},{"name":"Lab Spoon","cat":"Tool","at":[{"b":2,"s":"Drawer","c":["D4"],"q":"6","n":""}]},{"name":"Forcep repair Kit","cat":"Misc","at":[{"b":2,"s":"Drawer","c":["D5"],"q":"1","n":""}]},{"name":"Forceps","cat":"Tool","at":[{"b":2,"s":"Drawer","c":["D5"],"q":"20","n":""}]},{"name":"Centrifuge 5425","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Digital Magnetic Stirrer","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Dry bath Incubator","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"2","n":""}]},{"name":"label Maker","cat":"Misc","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Nutator/3D Rocker","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Orbital Shaker","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Scale","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Stirrer/hotplate","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Ultrasonic Bath","cat":"Equipment","at":[{"b":3,"s":"Bench","c":["B3"],"q":"1","n":""}]},{"name":"Hawaiian Drosophila Supplies","cat":"Misc","at":[{"b":3,"s":"Shelf","c":["S1"],"q":"","n":"Cereal, baby food, gravel, etc."}]},{"name":"Misc. Micropipette parts","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S2"],"q":"","n":""}]},{"name":"Pipette Tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S2","S3","S4"],"q":"","n":"10 microliters-1250 microliter tips"}]},{"name":"1250 pipette tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S5"],"q":"1 box","n":""}]},{"name":"Small Flugs","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S5"],"q":"1 box","n":""},{"b":4,"s":"Shelf","c":["S16"],"q":"2 boxes","n":""}]},{"name":"10 Microliter Graduated Filter Tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S6"],"q":"2","n":""}]},{"name":"1000 microliter graduated filter tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S6"],"q":"2","n":""}]},{"name":"20 Microliter beveled filter tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S6"],"q":"2","n":""}]},{"name":"200 Microliter Graduated Filter Tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S6"],"q":"2","n":""}]},{"name":"200 microliter tips","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S6"],"q":"1","n":""}]},{"name":"Active Dry yeast","cat":"Misc","at":[{"b":3,"s":"Shelf","c":["S8"],"q":"3","n":""}]},{"name":"paraformeldehyde","cat":"Misc","at":[{"b":3,"s":"Shelf","c":["S8"],"q":"2","n":""}]},{"name":"Tube Blocks-variety","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S8"],"q":"12","n":""}]},{"name":"0.5ml Protein Lobind Tubes","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S9"],"q":"5","n":""}]},{"name":"1.5ml Protein Lobind Tubes","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S9","S11"],"q":"5","n":""}]},{"name":"0.2ml Individual PCR Tubes","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S10"],"q":"2","n":""}]},{"name":"8 Well PCR Strip Tubes/Caps","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S10"],"q":"3","n":""}]},{"name":"Gloves-Small,Medium,Large","cat":"Misc","at":[{"b":3,"s":"Shelf","c":["S10","S11"],"q":"27","n":""}]},{"name":"Empty Boxes","cat":"Equipment","at":[{"b":3,"s":"Shelf","c":["S11"],"q":"11","n":""}]},{"name":"5ml Disposable Pipet","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D1"],"q":"","n":""}]},{"name":"10ml Disposable Pipet","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D2"],"q":"","n":""}]},{"name":"25 ml Disposable Pipet","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D3","D4"],"q":"","n":""}]},{"name":"Glass Pipets with Bulbs","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D5"],"q":"","n":""}]},{"name":"Disposable Transfer Pipettes","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D7"],"q":"","n":""}]},{"name":"Petri Dishes- 60 x 15mm","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D8","D12"],"q":"","n":""}]},{"name":"50 ml Conical Tubes","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D9","D10","D13","D14"],"q":"","n":""},{"b":4,"s":"Cabinet","c":["D7"],"q":"","n":""}]},{"name":"1.5ml Microcentrifuge Tubes","cat":"Equipment","at":[{"b":3,"s":"Drawer","c":["D11","D15"],"q":"","n":""},{"b":4,"s":"Cabinet","c":["D7"],"q":"","n":""}]},{"name":"14 ml Tubes","cat":"Equipment","at":[{"b":3,"s":"Cabinet","c":["D6"],"q":"","n":""}]},{"name":"15 ml Centrifuge Tubes","cat":"Equipment","at":[{"b":3,"s":"Cabinet","c":["D6"],"q":"","n":""}]},{"name":"Blotting Paper","cat":"Equipment","at":[{"b":4,"s":"Shelf","c":["S2","S6"],"q":"2","n":""}]},{"name":"Pipette Controller","cat":"Equipment","at":[{"b":4,"s":"Shelf","c":["S12"],"q":"3","n":""}]},{"name":"Fly Trays","cat":"Misc","at":[{"b":4,"s":"Shelf","c":["S17"],"q":"","n":""}]},{"name":"Scintillation Vials","cat":"Equipment","at":[{"b":4,"s":"Shelf","c":["S19"],"q":"2","n":""}]},{"name":"Slide Books","cat":"Equipment","at":[{"b":4,"s":"Shelf","c":["S20"],"q":"","n":""}]},{"name":"Keyboard","cat":"Equipment","at":[{"b":4,"s":"Drawer","c":["D6"],"q":"1","n":""}]},{"name":"Stericups","cat":"Equipment","at":[{"b":4,"s":"Cabinet","c":["D7"],"q":"","n":""}]},{"name":"Nails + cap","cat":"Equipment","at":[{"b":6,"s":"Shelf","c":["S1"],"q":"","n":""}]},{"name":"THOR/RMC","cat":"Equipment","at":[{"b":6,"s":"Shelf","c":["S2","S3"],"q":"","n":""}]},{"name":"Qubit assay tubes","cat":"Equipment","at":[{"b":7,"s":"Drawer","c":["D1"],"q":"3 bags","n":""}]},{"name":"Plastic organizers","cat":"Misc","at":[{"b":7,"s":"Drawer","c":["D3","D4"],"q":"9","n":""}]},{"name":"Petri dish 100x15","cat":"Equipment","at":[{"b":7,"s":"Drawer","c":["D6"],"q":"35","n":""}]}];
+  var QR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbgAAAG4AQMAAAANBGDwAAAABlBMVEUZIB7////wB8MmAAAC6UlEQVR42u1cMW7DQAwj+v8/K018Eim3QIsgAwc6Q+s4txwhiZR4Rr13IeuyLuuyLusK1/X9P67b8+T5OXfPx6/n1y+rvvDelXWfXYfBHo1PXVgd+M7d69n8Mvh54cfoO4HWX3ZMXjEoKGY//fDrRIlOlP3N/CD4WePXN7vUFYti8HOvf81bBtkDZYOb+meIH/nnX5/wT0P8qCUA/TMsFIe8yJX9dMLvHn1TALvyoYbSJP7s8DvxBYEPhAwrQg+TyX5axd/kypvsm/pYZKjhL378hdicHMnEyQDsL4OfG34C4ugGVr6GjWgHPzf9XpIhwVBkYFLZh3861r/BCtLsZGMUIuITf3747UYZ2ENjB5uVMfi55c8pfC0ipCkq1XFqYfCzwq/YcGHOnKAEB7sTjNlPp/zZ7TEwaXa6ZFnkjDD4+fFP0lAWQnAYz+lt8qej/mPXc4+MQIuMTuiDn2H/hU1s8S1JA1sFffbTrP6NWq/7+H1PJJD4s8MPSj6l8XJjpjIVDH6G9Q9aBAGNOIAMJvHnF3/Y6oH+l5IpfOYPtvwFWgDbRcgGjFjSDqjZT6/+y66DnDRAzfnigcl+WvHPlnXMla3/oK5ejnOzn278ZVsEaYP5YQlN/Bnqh4FKvPNDYwTYTqLZT6f8uRW6eJm26Sz+T1P+onQF6gfV8tikNPHnyD/ZAOUgV70xKD3+F/zs8qdMh1D1y3PpsgU/s/grNshqWXdLDWiSVLOfTvwTCh20AyPqEGrMzn5a6Qc97gA957caMfIs+2mq/0q8SlXLuDRG0OBnlz9L/WWQwTvPIklmDX5W/AVYMh3gFHd5l0hIg5+VfuABB0oIOns7uUr7M/h5xR8o4FXn0cokEZr8aaj/tsMMahukoSn+F1P8sLwtAJYhrXRGH/5ijB+DT73W63RL/C+++Okb7KAda0BMvYk/3/onYq/W+5ZU+wU/V/7J02Ic38r7e2SwlP300395r23WZV3WZd3/rwd2AipoD+4rAQAAAABJRU5ErkJggg==";
+  var URL_TEXT = "claude.ai/code/artifact/12be8dc2";
+
+  var list = document.getElementById('list');
+  var tally = document.getElementById('tally');
+  var q = document.getElementById('q');
+  var clear = document.getElementById('clear');
+  var chips = document.getElementById('chips');
+  var bench = 0; // 0 = every bench
+
+  var benches = [];
+  DATA.forEach(function(g){ g.at.forEach(function(a){
+    if (a.b && benches.indexOf(a.b) < 0) benches.push(a.b);
+  }); });
+  benches.sort(function(a,b){ return a-b; });
+
+  document.getElementById('n-items').textContent = DATA.length;
+  document.getElementById('n-bench').textContent = benches.length;
+
+  // one haystack per item: name, category, bench, storage type, codes, notes
+  DATA.forEach(function(g){
+    var bits = [g.name, g.cat];
+    g.at.forEach(function(a){
+      bits.push('bench ' + a.b, 'b' + a.b, a.s, a.n || '');
+      a.c.forEach(function(c){ bits.push(c); });
+    });
+    g.hay = bits.join(' ').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ');
+  });
+
+  function esc(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function matches(g, terms){
+    for (var i = 0; i < terms.length; i++){
+      if (g.hay.indexOf(terms[i]) < 0) return false;
+    }
+    return true;
+  }
+
+  function render(){
+    var raw = q.value.trim();
+    var terms = raw.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean);
+    clear.classList.toggle('on', raw.length > 0);
+
+    var hits = DATA.filter(function(g){
+      if (terms.length && !matches(g, terms)) return false;
+      if (bench && !g.at.some(function(a){ return a.b === bench; })) return false;
+      return true;
+    });
+
+    if (!hits.length){
+      list.innerHTML = '<div class="empty"><p>Nothing matches &ldquo;' + esc(raw) + '&rdquo;</p>' +
+        '<span>Try a shorter word, a bench number, or a code like S8.</span></div>';
+      tally.textContent = 'no matches';
+      return;
+    }
+
+    var shown = 0, html = '';
+    hits.forEach(function(g){
+      var spots = g.at.filter(function(a){ return !bench || a.b === bench; });
+      shown += spots.length;
+      var places = spots.length > 1 ? ' multi' : '';
+      html += '<article class="card' + places + '">' +
+        '<div class="card-top"><h2 class="name">' + esc(g.name) + '</h2>' +
+        '<span class="cat">' + esc(g.cat) + '</span></div>';
+      if (spots.length > 1){
+        html += '<p class="spread">Stored in ' + spots.length + ' places</p>';
+      }
+      html += '<ul class="spots">';
+      spots.forEach(function(a){
+        html += '<li class="spot"><span class="codes">';
+        a.c.forEach(function(c){
+          html += '<button class="code" type="button" data-code="' + esc(c) + '">' + esc(c) + '</button>';
+        });
+        html += '</span><span class="where">Bench <b>' + esc(a.b) + '</b> &middot; ' + esc(a.s === 'Bench' ? 'Benchtop' : a.s) + '</span>';
+        html += a.q
+          ? '<span class="qty">' + esc(a.q) + '</span>'
+          : '<span class="qty none" title="Quantity not recorded">&mdash;</span>';
+        if (a.n) html += '<span class="note">' + esc(a.n) + '</span>';
+        html += '</li>';
+      });
+      html += '</ul></article>';
+    });
+
+    list.innerHTML = html;
+    var label = hits.length === 1 ? '1 item' : hits.length + ' items';
+    tally.innerHTML = (terms.length || bench)
+      ? label + ' &middot; ' + shown + (shown === 1 ? ' location' : ' locations')
+      : label + ' on the benches';
+  }
+
+  // bench filter chips
+  var chipHtml = '<button class="chip" type="button" data-b="0" aria-pressed="true">All benches</button>';
+  benches.forEach(function(b){
+    chipHtml += '<button class="chip" type="button" data-b="' + b + '" aria-pressed="false">Bench ' + b + '</button>';
+  });
+  chips.innerHTML = chipHtml;
+  chips.addEventListener('click', function(e){
+    var t = e.target.closest('.chip');
+    if (!t) return;
+    bench = parseInt(t.getAttribute('data-b'), 10);
+    Array.prototype.forEach.call(chips.children, function(c){
+      c.setAttribute('aria-pressed', c === t ? 'true' : 'false');
+    });
+    render();
+  });
+
+  // tapping a code pivots the search to "what else is stored here"
+  list.addEventListener('click', function(e){
+    var t = e.target.closest('.code');
+    if (!t) return;
+    q.value = t.getAttribute('data-code');
+    render();
+    q.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+
+  q.addEventListener('input', render);
+  clear.addEventListener('click', function(){ q.value = ''; render(); q.focus(); });
+
+  var seek = document.getElementById('seek');
+  window.addEventListener('scroll', function(){
+    seek.classList.toggle('stuck', window.scrollY > 112);
+  }, { passive: true });
+
+  // printable door sign
+  var sign = document.getElementById('sign');
+  var slot = document.getElementById('qr-slot');
+  document.getElementById('sign-btn').addEventListener('click', function(){
+    sign.hidden = false;
+    sign.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    window.setTimeout(function(){ window.print(); }, 450);
+  });
+  if (QR.charAt(0) === 'd'){
+    slot.innerHTML = '<img src="' + QR + '" alt="QR code linking to this inventory page" width="206" height="206">';
+    document.getElementById('qr-url').textContent = location.host + location.pathname;
+  } else {
+    slot.innerHTML = '<p style="font-family:var(--mono);font-size:12px;color:var(--muted);margin:0">' +
+      'Open this page on a computer to print the sign.</p>';
+  }
+
+  render();
+  if (window.matchMedia('(min-width: 820px)').matches) q.focus();
+})();
+</script>
+
+</body>
+</html>
